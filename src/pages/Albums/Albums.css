@@ -22,12 +22,6 @@
   
 }
 
-.paginaAlbums .contenedorProductos {
-  display: flex;
-  justify-content: center;
-  gap: clamp(1.8rem, 6vw, 4.5rem);
-  flex-wrap: wrap;
-}
 
 .paginaAlbums .producto {
   display: flex;
@@ -61,10 +55,7 @@
   transform: translateY(-6px);
 }
 
-.paginaAlbums .producto:hover img,
-.paginaAlbums .producto.activo img {
-  box-shadow: 0 10px 28px rgba(161, 24, 45, 0.55);
-}
+
 
 .paginaAlbums .filtros {
   background: rgba(0, 0, 0, 0.55);
