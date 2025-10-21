@@ -1,0 +1,23 @@
+.paginaProducto {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.errorContainer {
+  text-align: center;
+  padding: 2rem;
+}
+
+.volverLink {
+  display: block;
+  margin-top: 2rem;
+  text-align: center;
+}
+
+h1{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+

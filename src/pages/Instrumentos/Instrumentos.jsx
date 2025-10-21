@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import './Instrumentos.css'
 
@@ -68,16 +69,22 @@ export function Instrumentos() {
       <section className="Instrumentos">
         <div className="productGrid">
           {listaFiltrada.map((instrumento) => (
-            <ProductCard
+            <Link
               key={`${instrumento.nombre}-${instrumento.descripcion}`}
-              imageSrc={instrumento.imagen}
-              imageAlt={instrumento.nombre}
+              to="/productos"
+              state={instrumento}
+              className="productLink"
             >
-              <h3>{instrumento.nombre}</h3>
-              <p>{instrumento.descripcion}</p>
-              <span className="precio">{formatearPrecio(instrumento.precio)}</span>
-              <BottonComprar />
-            </ProductCard>
+              <ProductCard
+                imageSrc={instrumento.imagen}
+                imageAlt={instrumento.nombre}
+              >
+                <h3>{instrumento.nombre}</h3>
+                <p>{instrumento.descripcion}</p>
+                <span className="precio">{formatearPrecio(instrumento.precio)}</span>
+                <BottonComprar />
+              </ProductCard>
+            </Link>
           ))}
         </div>
       </section>

@@ -95,7 +95,7 @@ export function Albums() {
     <div className="paginaAlbums">
       <section className="productos">
         <div className="titulo">
-          <h1>Álbums</h1>
+          <h1>Productos</h1>
         </div>
         <div className="contenedorProductos">
           {categorias.map((categoria) => {

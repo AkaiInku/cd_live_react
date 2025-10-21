@@ -81,3 +81,9 @@
     padding: 32px 18px;
   }
 }
+
+.productLink {
+  text-decoration: none;
+  color: inherit;
+  display: contents;
+}

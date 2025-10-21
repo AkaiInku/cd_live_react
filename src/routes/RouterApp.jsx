@@ -9,80 +9,80 @@ import { ModalRegistroConfirmado } from '@components/modals/ModalRegistroConfirm
 import { routesConfig } from './routesConfig'
 
 export function RouterApp() {
-	const [loginAbierto, setLoginAbierto] = useState(false)
-	const [registroAbierto, setRegistroAbierto] = useState(false)
-	const [tarjetaAbierta, setTarjetaAbierta] = useState(false)
-	const [confirmacionRegistroAbierta, setConfirmacionRegistroAbierta] = useState(false)
+  const [loginAbierto, setLoginAbierto] = useState(false)
+  const [registroAbierto, setRegistroAbierto] = useState(false)
+  const [tarjetaAbierta, setTarjetaAbierta] = useState(false)
+  const [confirmacionRegistroAbierta, setConfirmacionRegistroAbierta] = useState(false)
 
-	const cerrarModales = useCallback(() => {
-		setLoginAbierto(false)
-		setRegistroAbierto(false)
-		setTarjetaAbierta(false)
-		setConfirmacionRegistroAbierta(false)
-	}, [])
+  const cerrarModales = useCallback(() => {
+    setLoginAbierto(false)
+    setRegistroAbierto(false)
+    setTarjetaAbierta(false)
+    setConfirmacionRegistroAbierta(false)
+  }, [])
 
-	const abrirLogin = useCallback(() => {
-		setLoginAbierto(true)
-		setRegistroAbierto(false)
-		setTarjetaAbierta(false)
-		setConfirmacionRegistroAbierta(false)
-	}, [])
+  const abrirLogin = useCallback(() => {
+    setLoginAbierto(true)
+    setRegistroAbierto(false)
+    setTarjetaAbierta(false)
+    setConfirmacionRegistroAbierta(false)
+  }, [])
 
-	const abrirRegistro = useCallback(() => {
-		setRegistroAbierto(true)
-		setLoginAbierto(false)
-		setTarjetaAbierta(false)
-		setConfirmacionRegistroAbierta(false)
-	}, [])
+  const abrirRegistro = useCallback(() => {
+    setRegistroAbierto(true)
+    setLoginAbierto(false)
+    setTarjetaAbierta(false)
+    setConfirmacionRegistroAbierta(false)
+  }, [])
 
-	const cerrarConfirmacionRegistro = useCallback(() => {
-		setConfirmacionRegistroAbierta(false)
-	}, [])
+  const cerrarConfirmacionRegistro = useCallback(() => {
+    setConfirmacionRegistroAbierta(false)
+  }, [])
 
-	const mostrarTarjeta = useCallback(() => {
-		setConfirmacionRegistroAbierta(false)
-		setRegistroAbierto(false)
-		setLoginAbierto(false)
-		setTarjetaAbierta(true)
-	}, [])
+  const mostrarTarjeta = useCallback(() => {
+    setConfirmacionRegistroAbierta(false)
+    setRegistroAbierto(false)
+    setLoginAbierto(false)
+    setTarjetaAbierta(true)
+  }, [])
 
-	const finalizarRegistroConTarjeta = useCallback(() => {
-		setTarjetaAbierta(false)
-		setConfirmacionRegistroAbierta(true)
-	}, [])
+  const finalizarRegistroConTarjeta = useCallback(() => {
+    setTarjetaAbierta(false)
+    setConfirmacionRegistroAbierta(true)
+  }, [])
 
-		const router = useMemo(() => {
-			const LayoutWrapper = () => (
-				<MainLayout onOpenLogin={abrirLogin}>
-					<Outlet />
-				</MainLayout>
-			)
+  const router = useMemo(() => {
+    const LayoutWrapper = () => (
+      <MainLayout onOpenLogin={abrirLogin}>
+        <Outlet />
+      </MainLayout>
+    )
 
-			return createBrowserRouter([
-				{
-					element: <LayoutWrapper />,
-					children: routesConfig,
-				},
-			])
-		}, [abrirLogin])
+    return createBrowserRouter([
+      {
+        element: <LayoutWrapper />,
+        children: routesConfig,
+      },
+    ])
+  }, [abrirLogin])
 
-		return (
-			<>
-				<RouterProvider router={router} />
+  return (
+    <>
+      <RouterProvider router={router} />
 
-				<ModalLogin abierto={loginAbierto} onCerrar={cerrarModales} onIrRegistro={abrirRegistro} />
-				<ModalRegistro
-					abierto={registroAbierto}
-					onCerrar={cerrarModales}
-					onIrLogin={abrirLogin}
-					onRegistroExitoso={mostrarTarjeta}
-				/>
-				<ModalRegistroConfirmado
-					abierto={confirmacionRegistroAbierta}
-					onCerrar={cerrarConfirmacionRegistro}
-					onVerPerfil={cerrarConfirmacionRegistro}
-				/>
-				<ModalTarjeta abierto={tarjetaAbierta} onCerrar={cerrarModales} onRegistroCompletado={finalizarRegistroConTarjeta} />
-			</>
-		)
+      <ModalLogin abierto={loginAbierto} onCerrar={cerrarModales} onIrRegistro={abrirRegistro} />
+      <ModalRegistro
+        abierto={registroAbierto}
+        onCerrar={cerrarModales}
+        onIrLogin={abrirLogin}
+        onRegistroExitoso={mostrarTarjeta}
+      />
+      <ModalRegistroConfirmado
+        abierto={confirmacionRegistroAbierta}
+        onCerrar={cerrarConfirmacionRegistro}
+        onVerPerfil={cerrarConfirmacionRegistro}
+      />
+      <ModalTarjeta abierto={tarjetaAbierta} onCerrar={cerrarModales} onRegistroCompletado={finalizarRegistroConTarjeta} />
+    </>
+  )
 }
