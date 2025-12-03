@@ -1,0 +1,159 @@
+{
+  "id": "excel-to-mysql-agent",
+  "nombre": "ExcelToMySQLAgent",
+  "versión": "1.0.0",
+  "descripcion": "Recupera un archivo Excel desde OneDrive, genera un esquema MySQL según su estructura e importa los datos con renombrado opcional de columnas.",
+  "propósito_detallado": "Automatizar la migración de datos Excel almacenados en OneDrive hacia MySQL. El agente usa conectores preconfigurados para acceder a OneDrive y a la base de datos, infiere esquema, permite renombrar columnas y realiza la inserción con integridad mínima.",
+  "intent_triggers": [
+    { "tipo": "message", "ejemplo": "Migrar /carpeta/ventas.xlsx a la BD" },
+    { "tipo": "http", "ejemplo": "POST /migrate { \"onedrive_path\": \"/path/file.xlsx\" }" }
+  ],
+  "persona": "técnico y seguro: explica pasos, solicita confirmación antes de cambios destructivos, evita exponer credenciales.",
+  "capabilities": [
+    "descargar_excel_onedrive",
+    "inferir_esquema_desde_excel",
+    "generar_ddl_mysql",
+    "renombrar_columnas_opcional",
+    "insertar_lotes_en_mysql",
+    "validar_integridad_basica"
+  ],
+  "actions": [
+    {
+      "id": "FetchExcelFromOneDrive",
+      "descripcion": "Obtiene el archivo Excel y devuelve URL de descarga o binario.",
+      "input_schema": { "onedrive_path": "string" },
+      "output_schema": { "download_url": "string", "size_bytes": "integer" },
+      "run_hint": "sync"
+    },
+    {
+      "id": "ParseExcelStructure",
+      "descripcion": "Parsea el Excel y determina nombres de columnas, tipos sugeridos y filas de muestra.",
+      "input_schema": { "download_url": "string", "sheet_name?": "string" },
+      "output_schema": { "columns": [{"name":"string","sample_type":"string"}], "rows_sample": "array" },
+      "run_hint": "sync"
+    },
+    {
+      "id": "CreateMySQLSchema",
+      "descripcion": "Genera sentencias DDL para crear tablas en MySQL según el esquema inferido.",
+      "input_schema": { "table_name": "string", "columns": "array" },
+      "output_schema": { "ddl": "string", "created": "boolean" },
+      "run_hint": "sync"
+    },
+    {
+      "id": "InsertDataIntoMySQL",
+      "descripcion": "Inserta datos por lotes, con mapeo opcional de columnas y control de transacciones.",
+      "input_schema": { "table_name": "string", "rows": "array", "column_mapping?": "object" },
+      "output_schema": { "rows_inserted": "integer", "errors": "array" },
+      "run_hint": "async"
+    }
+  ],
+  "connectors": [
+    {
+      "nombre": "OneDrive (Microsoft Graph)",
+      "tipo": "API",
+      "endpoint": "https://graph.microsoft.com/v1.0/me/drive/root:/<path>:/content",
+      "scopes": ["Files.Read.All", "Files.ReadWrite.All"],
+      "ejemplo_curl": "curl -H \"Authorization: Bearer $ONEDRIVE_OAUTH_TOKEN\" -L \"https://graph.microsoft.com/v1.0/me/drive/root:/path/file.xlsx:/content\" -o file.xlsx",
+      "respuesta_esperada": "Binario del archivo o redirección a URL de descarga.",
+      "credenciales_requeridas": true,
+      "preconfigured": true,
+      "secret_key_name": "ONEDRIVE_OAUTH_TOKEN",
+      "stored_in": "agent_config_secrets"
+    },
+    {
+      "nombre": "MySQL",
+      "tipo": "Database Connector",
+      "endpoint": "mysql://<host>:<port>/<database>",
+      "scopes": ["db:connect","db:write"],
+      "ejemplo_curl": "curl --request POST \"https://sql-proxy.example/execute\" -d '{\"query\":\"CREATE TABLE ...\"}' -H \"Authorization: Bearer $MYSQL_CONN_TOKEN\"",
+      "respuesta_esperada": "Confirmación de ejecución o error SQL.",
+      "credenciales_requeridas": true,
+      "preconfigured": true,
+      "secret_key_name": "MYSQL_CONN_URI",
+      "stored_in": "agent_config_secrets"
+    }
+  ],
+  "runtime": {
+    "tipo": "container",
+    "imagen_docker_recomendada": "ghcr.io/tu-org/excel-to-mysql-agent:latest",
+    "puerto": 8080,
+    "env_vars": [
+      { "nombre": "ONEDRIVE_OAUTH_TOKEN", "obligatorio": true, "ejemplo": "secreto-provisionado" },
+      { "nombre": "MYSQL_CONN_URI", "obligatorio": true, "ejemplo": "mysql://user:pass@host:3306/db" },
+      { "nombre": "BATCH_SIZE", "obligatorio": false, "ejemplo": "500" }
+    ]
+  },
+  "permissions_required": [
+    "OneDrive: Files.Read.All (solo lectura necesaria para descarga)",
+    "MySQL: usuario con permisos CREATE, INSERT, SELECT"
+  ],
+  "memory": {
+    "tipo": "temporal",
+    "esquema": { "last_migration": "timestamp", "migration_history": "array of objects { table, rows, status }" },
+    "TTL": "90d"
+  },
+  "ui_elements": [
+    {
+      "tipo": "form",
+      "titulo": "Migrar Excel a MySQL",
+      "campos": [
+        { "name": "onedrive_path", "type": "string", "required": true },
+        { "name": "table_name", "type": "string", "required": true },
+        { "name": "column_mapping", "type": "json", "required": false }
+      ]
+    }
+  ],
+  "security_and_guardrails": [
+    "No incluir credenciales en el manifest; usar secretos preconfigurados.",
+    "Enmascarar PII antes de persistir (emails, SSNs).",
+    "Solicitar confirmación humana antes de crear o eliminar tablas.",
+    "Límites de tasa para descargas e inserciones: configurable vía BATCH_SIZE.",
+    "requiere_aprobacion_legal: true (acceso a datos y almacenamiento)"
+  ],
+  "tests": [
+    {
+      "nombre": "ExcelToSchemaTest",
+      "input": { "onedrive_path": "/samples/small.xlsx", "table_name": "test_small" },
+      "pasos_esperados": "descargar -> parsear -> generar DDL",
+      "salida_esperada": { "ddl": "CREATE TABLE test_small (...)", "created": true }
+    },
+    {
+      "nombre": "DataInsertionTest",
+      "input": { "onedrive_path": "/samples/data_types.xlsx", "table_name": "types_test" },
+      "pasos_esperados": "parsear tipos -> mapear -> insertar lotes",
+      "salida_esperada": { "rows_inserted": 120, "errors": [] }
+    }
+  ],
+  "metrics_and_observability": [
+    { "nombre": "latencia_descarga_ms", "definicion": "ms desde solicitud a OneDrive hasta descarga", "objetivo": "<=2000" },
+    { "nombre": "filas_por_minuto", "definicion": "velocidad de inserción", "objetivo": ">=1000" },
+    { "nombre": "tasa_exito_migracion", "definicion": "migraciones completadas sin errores / total", "objetivo": ">=99%" }
+  ],
+  "deploy_instructions": "Provisionar secretos ONEDRIVE_OAUTH_TOKEN y MYSQL_CONN_URI en la configuración del agente; construir imagen Docker y desplegar; exponer endpoint /migrate POST; configurar alertas para fallos.",
+  "artifacts_generables": [
+    "Dockerfile (plantilla)",
+    "server_stub.py (Flask) / server_stub.js (Express)",
+    "openapi.yaml"
+  ],
+  "limitaciones_conocidas": [
+    "Inferencia de tipos puede fallar con celdas mixtas; revisar mapeos antes de insertar.",
+    "No soporta archivos .xls antiguos sin conversión.",
+    "Operaciones a gran escala pueden requerir batching y monitorización."
+  ],
+  "metadata": {
+    "autor": "AgentFactory-CopilotStudio",
+    "fecha_creacion": "2025-12-03",
+    "tags": ["onedrive","excel","mysql","migration"],
+    "secrets_required": ["ONEDRIVE_OAUTH_TOKEN","MYSQL_CONN_URI"],
+    "word_count": 420,
+    "trimmed": false,
+    "trim_summary": ""
+  },
+  "ejemplos_interaccion": [
+    {
+      "user": "Migrar /reports/sales.xlsx a tabla sales_2025 con renombrado columna 'Total USD'->'total_usd'.",
+      "agent": "Descargando file, generando esquema, solicitando confirmación para crear tabla sales_2025 y mapear columnas..."
+    }
+  ],
+  "output_format": "application/json"
+}
