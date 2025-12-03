@@ -7,7 +7,6 @@
  */
 
 import express from 'express';
-import https from 'https';
 import mysql from 'mysql2/promise';
 import xlsx from 'xlsx';
 
@@ -16,6 +15,47 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 8080;
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || '500', 10);
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10); // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10', 10);
+
+// Simple in-memory rate limiter
+const rateLimitStore = new Map();
+
+function rateLimit(req, res, next) {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  
+  // Clean up old entries
+  if (rateLimitStore.size > 10000) {
+    for (const [key, value] of rateLimitStore) {
+      if (now - value.windowStart > RATE_LIMIT_WINDOW_MS) {
+        rateLimitStore.delete(key);
+      }
+    }
+  }
+  
+  let record = rateLimitStore.get(ip);
+  
+  if (!record || now - record.windowStart > RATE_LIMIT_WINDOW_MS) {
+    record = { windowStart: now, count: 0 };
+  }
+  
+  record.count++;
+  rateLimitStore.set(ip, record);
+  
+  res.setHeader('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS);
+  res.setHeader('X-RateLimit-Remaining', Math.max(0, RATE_LIMIT_MAX_REQUESTS - record.count));
+  res.setHeader('X-RateLimit-Reset', record.windowStart + RATE_LIMIT_WINDOW_MS);
+  
+  if (record.count > RATE_LIMIT_MAX_REQUESTS) {
+    return res.status(429).json({
+      error: 'Too many requests',
+      retryAfter: Math.ceil((record.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1000)
+    });
+  }
+  
+  next();
+}
 
 // Environment variable validation
 const requiredEnvVars = ['ONEDRIVE_OAUTH_TOKEN', 'MYSQL_CONN_URI'];
@@ -213,7 +253,7 @@ app.post('/actions/parse-excel', async (req, res) => {
  * Action: CreateMySQLSchema
  * Generates and optionally executes DDL for creating a MySQL table
  */
-app.post('/actions/create-schema', async (req, res) => {
+app.post('/actions/create-schema', rateLimit, async (req, res) => {
   try {
     const { table_name, columns, execute = false } = req.body;
     
@@ -267,7 +307,7 @@ app.post('/actions/create-schema', async (req, res) => {
  * Action: InsertDataIntoMySQL
  * Inserts data in batches with optional column mapping
  */
-app.post('/actions/insert-data', async (req, res) => {
+app.post('/actions/insert-data', rateLimit, async (req, res) => {
   try {
     const { table_name, rows, column_mapping = {} } = req.body;
     
@@ -332,7 +372,7 @@ app.post('/actions/insert-data', async (req, res) => {
  * Main Migration Endpoint
  * Orchestrates the full migration workflow
  */
-app.post('/migrate', async (req, res) => {
+app.post('/migrate', rateLimit, async (req, res) => {
   try {
     const { onedrive_path, table_name, column_mapping = {}, sheet_name, confirm_create = false } = req.body;
     
