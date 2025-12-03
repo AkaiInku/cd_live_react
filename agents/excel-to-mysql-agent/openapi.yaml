@@ -1,0 +1,533 @@
+openapi: 3.0.3
+info:
+  title: ExcelToMySQLAgent API
+  description: |
+    API for migrating Excel files from OneDrive to MySQL databases.
+    
+    This agent provides endpoints to:
+    - Fetch Excel files from OneDrive using Microsoft Graph API
+    - Parse Excel structure and infer column types
+    - Generate MySQL DDL schemas
+    - Insert data in batches with optional column mapping
+    
+    ## Security
+    - All credentials are stored as secrets and not exposed in responses
+    - PII data (emails, SSNs) is automatically masked before insertion
+    - Human confirmation is required before table creation
+    
+    ## Authentication
+    Requires the following environment variables to be set:
+    - `ONEDRIVE_OAUTH_TOKEN`: OAuth token for Microsoft Graph API
+    - `MYSQL_CONN_URI`: MySQL connection string
+  version: 1.0.0
+  contact:
+    name: AgentFactory-CopilotStudio
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://excel-to-mysql-agent.example.com
+    description: Production server
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Actions
+    description: Individual agent actions
+  - name: Migration
+    description: Full migration workflow
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns the health status of the agent
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Agent is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-12-03T12:00:00Z"
+
+  /actions/fetch-excel:
+    post:
+      tags:
+        - Actions
+      summary: Fetch Excel from OneDrive
+      description: Downloads an Excel file from OneDrive using Microsoft Graph API
+      operationId: fetchExcelFromOneDrive
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FetchExcelRequest'
+      responses:
+        '200':
+          description: File metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FetchExcelResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /actions/parse-excel:
+    post:
+      tags:
+        - Actions
+      summary: Parse Excel structure
+      description: Parses the Excel file and returns column information and sample rows
+      operationId: parseExcelStructure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParseExcelRequest'
+      responses:
+        '200':
+          description: Excel structure parsed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParseExcelResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /actions/create-schema:
+    post:
+      tags:
+        - Actions
+      summary: Create MySQL schema
+      description: Generates DDL for creating a MySQL table based on inferred schema
+      operationId: createMySQLSchema
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSchemaRequest'
+      responses:
+        '200':
+          description: Schema created/generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateSchemaResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /actions/insert-data:
+    post:
+      tags:
+        - Actions
+      summary: Insert data into MySQL
+      description: Inserts data in batches with optional column mapping
+      operationId: insertDataIntoMySQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InsertDataRequest'
+      responses:
+        '200':
+          description: Data insertion completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsertDataResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /migrate:
+    post:
+      tags:
+        - Migration
+      summary: Full migration workflow
+      description: |
+        Orchestrates the complete migration workflow:
+        1. Fetch Excel from OneDrive
+        2. Parse Excel structure
+        3. Create MySQL schema (requires confirmation)
+        4. Insert data in batches
+        
+        If `confirm_create` is false, returns a preview for human confirmation.
+      operationId: migrate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigrateRequest'
+            examples:
+              basic:
+                summary: Basic migration
+                value:
+                  onedrive_path: "/reports/sales.xlsx"
+                  table_name: "sales_2025"
+                  confirm_create: true
+              with_mapping:
+                summary: Migration with column mapping
+                value:
+                  onedrive_path: "/reports/sales.xlsx"
+                  table_name: "sales_2025"
+                  column_mapping:
+                    "Total USD": "total_usd"
+                    "Customer Name": "customer_name"
+                  sheet_name: "Sheet1"
+                  confirm_create: true
+      responses:
+        '200':
+          description: Migration completed or pending confirmation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/MigrateResponse'
+                  - $ref: '#/components/schemas/MigratePendingConfirmation'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    FetchExcelRequest:
+      type: object
+      required:
+        - onedrive_path
+      properties:
+        onedrive_path:
+          type: string
+          description: Path to the Excel file in OneDrive
+          example: "/reports/sales.xlsx"
+
+    FetchExcelResponse:
+      type: object
+      properties:
+        download_url:
+          type: string
+          description: Temporary download URL for the file
+        size_bytes:
+          type: integer
+          description: File size in bytes
+          example: 1048576
+        name:
+          type: string
+          description: File name
+          example: "sales.xlsx"
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+          description: Last modification timestamp
+
+    ParseExcelRequest:
+      type: object
+      required:
+        - download_url
+      properties:
+        download_url:
+          type: string
+          description: URL to download the Excel file
+        sheet_name:
+          type: string
+          description: Optional sheet name to parse (defaults to first sheet)
+
+    ParseExcelResponse:
+      type: object
+      properties:
+        sheet_name:
+          type: string
+          description: Name of the parsed sheet
+        available_sheets:
+          type: array
+          items:
+            type: string
+          description: List of all available sheets
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/ColumnInfo'
+        total_rows:
+          type: integer
+          description: Total number of data rows
+        rows_sample:
+          type: array
+          items:
+            type: object
+          description: Sample of first 10 rows
+
+    ColumnInfo:
+      type: object
+      properties:
+        original_name:
+          type: string
+          description: Original column name from Excel
+        name:
+          type: string
+          description: Sanitized column name for MySQL
+        sample_type:
+          type: string
+          description: Inferred MySQL column type
+          example: "VARCHAR(255)"
+        sample_values:
+          type: array
+          items: {}
+          description: Sample values from the column
+
+    CreateSchemaRequest:
+      type: object
+      required:
+        - table_name
+        - columns
+      properties:
+        table_name:
+          type: string
+          description: Name of the table to create
+          example: "sales_2025"
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/ColumnInfo'
+        execute:
+          type: boolean
+          default: false
+          description: Whether to execute the DDL immediately
+
+    CreateSchemaResponse:
+      type: object
+      properties:
+        table_name:
+          type: string
+          description: Sanitized table name
+        ddl:
+          type: string
+          description: Generated DDL statement
+        created:
+          type: boolean
+          description: Whether the table was created
+        columns_count:
+          type: integer
+          description: Number of columns in the table
+
+    InsertDataRequest:
+      type: object
+      required:
+        - table_name
+        - rows
+      properties:
+        table_name:
+          type: string
+          description: Target table name
+        rows:
+          type: array
+          items:
+            type: object
+          description: Array of row objects to insert
+        column_mapping:
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional mapping from original to new column names
+
+    InsertDataResponse:
+      type: object
+      properties:
+        rows_inserted:
+          type: integer
+          description: Number of rows successfully inserted
+        total_rows:
+          type: integer
+          description: Total number of rows attempted
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchError'
+        success:
+          type: boolean
+          description: Whether all rows were inserted successfully
+
+    BatchError:
+      type: object
+      properties:
+        batch_start:
+          type: integer
+          description: Starting index of the failed batch
+        batch_end:
+          type: integer
+          description: Ending index of the failed batch
+        error:
+          type: string
+          description: Error message
+
+    MigrateRequest:
+      type: object
+      required:
+        - onedrive_path
+        - table_name
+      properties:
+        onedrive_path:
+          type: string
+          description: Path to the Excel file in OneDrive
+          example: "/reports/sales.xlsx"
+        table_name:
+          type: string
+          description: Name of the MySQL table to create
+          example: "sales_2025"
+        column_mapping:
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional mapping from original to new column names
+          example:
+            "Total USD": "total_usd"
+        sheet_name:
+          type: string
+          description: Optional sheet name (defaults to first sheet)
+        confirm_create:
+          type: boolean
+          default: false
+          description: Set to true to confirm table creation
+
+    MigrateResponse:
+      type: object
+      properties:
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/MigrationStep'
+        success:
+          type: boolean
+          description: Whether the migration completed successfully
+        summary:
+          type: object
+          properties:
+            table_name:
+              type: string
+            rows_inserted:
+              type: integer
+            total_rows:
+              type: integer
+            total_latency_ms:
+              type: integer
+
+    MigrationStep:
+      type: object
+      properties:
+        action:
+          type: string
+          description: Action name
+          enum:
+            - FetchExcelFromOneDrive
+            - ParseExcelStructure
+            - CreateMySQLSchema
+            - InsertDataIntoMySQL
+        status:
+          type: string
+          description: Step status
+          enum:
+            - completed
+            - completed_with_errors
+            - failed
+        latency_ms:
+          type: integer
+          description: Time taken for this step
+
+    MigratePendingConfirmation:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "pending_confirmation"
+        message:
+          type: string
+          example: "Please confirm table creation by setting confirm_create: true"
+        preview:
+          type: object
+          properties:
+            table_name:
+              type: string
+            ddl:
+              type: string
+            columns:
+              type: array
+              items:
+                $ref: '#/components/schemas/ColumnInfo'
+            total_rows_to_insert:
+              type: integer
+            column_mapping:
+              type: object
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          type: string
+          description: Additional error details

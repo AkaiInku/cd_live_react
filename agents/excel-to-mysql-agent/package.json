@@ -1,0 +1,28 @@
+{
+  "name": "excel-to-mysql-agent",
+  "version": "1.0.0",
+  "description": "Agent that migrates Excel files from OneDrive to MySQL databases",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "onedrive",
+    "excel",
+    "mysql",
+    "migration",
+    "agent"
+  ],
+  "author": "AgentFactory-CopilotStudio",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.0",
+    "mysql2": "^3.11.3",
+    "xlsx": "^0.18.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
